@@ -12,6 +12,7 @@ import {
   inspectClientConfiguration,
 } from "../../../src/application/SetupClientConfiguration.js";
 import { supportedClients } from "../../../src/application/SupportedClients.js";
+import { detectClients } from "../../../src/application/SetupHost.js";
 import {
   runUninstall,
   systemUninstallHost,
@@ -35,6 +36,7 @@ it.each([
   { agent: "mastracode", client: "mastracode" },
   { agent: "zed", client: "zed" },
   { agent: "amp", client: "amp" },
+  { agent: "mcporter", client: "mcporter" },
 ])(
   "inspects, refreshes and removes the $agent registration that mcp add wrote as $client",
   async ({ agent, client }) => {
@@ -161,4 +163,35 @@ it("registers Amp in settings.jsonc when that is Amp's only settings file", asyn
     resources,
   );
   expect(ambiguous.ok).toBe(false);
+});
+
+it("keeps MCPorter out of setup detection and doctor until REA registers it", async () => {
+  const home = await createTestTempDirectory("rea-mcporter-applicability-");
+  const environment = {};
+  const row = supportedClients(home, platform, environment).find(
+    ({ name }) => name === "mcporter",
+  );
+  if (row === undefined) throw new Error("mcporter has no table row");
+  await mkdir(join(home, ".mcporter"), { recursive: true });
+  await writeFile(
+    row.configPath,
+    `${JSON.stringify({ mcpServers: { peer: { command: "peer" } } })}\n`,
+  );
+  expect(
+    (await detectClients(home, platform, environment)).map(({ name }) => name),
+  ).not.toContain("mcporter");
+  const statuses = await readClientRegistrationStatuses(home, command[1], {
+    platform,
+    environment,
+  });
+  expect(statuses.map(({ client }) => client)).not.toContain("mcporter");
+  // An explicit selection still reports the missing registration.
+  const selected = await readClientRegistrationStatuses(home, command[1], {
+    platform,
+    environment,
+    selectedClientIds: ["mcporter"],
+  });
+  expect(selected.find(({ client }) => client === "mcporter")).toMatchObject({
+    state: "missing",
+  });
 });
