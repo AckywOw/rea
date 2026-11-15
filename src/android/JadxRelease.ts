@@ -1,6 +1,8 @@
 // Imported directly by pre-install fixture scripts; keep this module dependency-free.
 import { readFileSync } from "node:fs";
 
+import { malformedInput } from "../domain/parseFailure.js";
+
 /** Audited upstream release; source remains unmodified in the Git submodule. */
 export const JADX_RELEASE = Object.freeze({
   version: "0.7.1",
@@ -82,8 +84,10 @@ const topLevelClassMembers = (source: string, className: string): string => {
       members += text === "{" || text === "}" ? " " : text;
   }
   if (classBodies !== 1)
-    throw new Error(
+    throw malformedInput(
+      "jadx-bridge-source",
       `REA's JADX bridge source must declare top-level class ${className} exactly once; found ${String(classBodies)}`,
+      { field: "class" },
     );
   return members;
 };
@@ -99,8 +103,10 @@ const declaredString = (members: string, constant: string): string => {
   ];
   const value = matches.length === 1 ? matches[0]?.[1] : undefined;
   if (value === undefined)
-    throw new Error(
+    throw malformedInput(
+      "jadx-bridge-source",
       `REA's JADX bridge source must declare ${constant} exactly once; found ${String(matches.length)}`,
+      { field: constant },
     );
   return value;
 };
